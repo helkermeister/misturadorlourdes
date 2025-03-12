@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Embaralhamento de Turmas</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .container { width: 80%; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        textarea { width: 100%; height: 80px; }
+        .input-group { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Embaralhamento de Turmas</h1>
+        <div class="input-group">
+            <label>Título da Avaliação: <input type="text" id="titulo"></label>
+        </div>
+        <div class="input-group">
+            <label>Data de Aplicação: <input type="date" id="data"></label>
+        </div>
+        <div class="input-group">
+            <label>Bimestre: <input type="text" id="bimestre"></label>
+        </div>
+        
+        <h2>Insira os Alunos por Turma</h2>
+        <div id="inputs"></div>
+        <button onclick="gerarTabela()">Gerar Combinação</button>
+        <button onclick="exportarPDF()">Exportar para PDF</button>
+        
+        <h2>Resultado</h2>
+        <div id="tabela"></div>
+    </div>
+    
+    <script>
+        const turmas = ["1º ano A", "1º ano B", "1º ano C", "2º ano A", "2º ano B", "2º ano C", "3º ano A", "3º ano B"];
+        const inputsDiv = document.getElementById("inputs");
+        turmas.forEach(turma => {
+            inputsDiv.innerHTML += `<h3>${turma}</h3><textarea id="${turma.replace(/\s/g, '_')}" placeholder="Insira os alunos, um por linha"></textarea>`;
+        });
+        
+        function gerarTabela() {
+            let dados = {};
+            turmas.forEach(turma => {
+                let id = turma.replace(/\s/g, '_');
+                dados[turma] = document.getElementById(id).value.split('\n').map(a => a.trim()).filter(a => a !== '');
+            });
+            
+            let totalLinhas = 8;
+            let alunosDistribuidos = {};
+            turmas.forEach(turma => alunosDistribuidos[turma] = Array.from({ length: totalLinhas }, () => []));
+            
+            turmas.forEach(origem => {
+                let alunos = [...dados[origem]].sort(() => Math.random() - 0.5);
+                let linhaAtual = 0;
+                while (alunos.length > 0) {
+                    alunosDistribuidos[origem][linhaAtual % totalLinhas].push(alunos.shift());
+                    linhaAtual++;
+                }
+            });
+            
+            let tabelaHTML = "<table><tr><th>Turma</th>" + turmas.map(t => `<th>${t}</th>`).join('') + "<th>Total</th></tr>";
+            
+            for (let i = 0; i < totalLinhas; i++) {
+                let totalLinha = 0;
+                tabelaHTML += `<tr><th>${turmas[i]}</th>` + turmas.map(turma => {
+                    let alunosNaLinha = alunosDistribuidos[turma][i];
+                    totalLinha += alunosNaLinha.length;
+                    return `<td>${alunosNaLinha.join('<br>')}</td>`;
+                }).join('') + `<td>${totalLinha}</td></tr>`;
+            }
+            
+            let totaisColuna = turmas.map(turma => alunosDistribuidos[turma].flat().length);
+            tabelaHTML += `<tr><th>Total</th>` + totaisColuna.map(total => `<td>${total}</td>`).join('') + `<td>${totaisColuna.reduce((a, b) => a + b, 0)}</td></tr>`;
+            
+            tabelaHTML += "</table>";
+            document.getElementById("tabela").innerHTML = tabelaHTML;
+        }
+        
+        function exportarPDF() {
+            alert("Função de exportação para PDF em desenvolvimento.");
+        }
+    </script>
+</body>
+</html>
