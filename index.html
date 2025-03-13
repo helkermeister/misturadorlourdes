@@ -30,7 +30,7 @@
         <h2>Insira os Alunos por Turma</h2>
         <div id="inputs"></div>
         <button onclick="gerarTabela()">Gerar Combinação</button>
-        <button onclick="exportarPDF()">Exportar para PDF</button>
+        <button onclick="exportarDOC()">Exportar para DOC</button>
         
         <h2>Resultado</h2>
         <div id="tabela"></div>
@@ -63,26 +63,43 @@
                 }
             });
             
-            let tabelaHTML = "<table><tr><th>Turma</th>" + turmas.map(t => `<th>${t}</th>`).join('') + "<th>Total</th></tr>";
+            let tabelaHTML = "<table style='border: 2px solid black; width: 100%; text-align: center; border-collapse: collapse;'><tr><th>Turma</th>" + turmas.map(t => `<th>${t}</th>`).join('') + "<th>Total</th></tr>";
             
             for (let i = 0; i < totalLinhas; i++) {
                 let totalLinha = 0;
                 tabelaHTML += `<tr><th>${turmas[i]}</th>` + turmas.map(turma => {
                     let alunosNaLinha = alunosDistribuidos[turma][i];
                     totalLinha += alunosNaLinha.length;
-                    return `<td>${alunosNaLinha.join('<br>')}</td>`;
-                }).join('') + `<td>${totalLinha}</td></tr>`;
+                    return `<td style='border: 1px solid black;'>${alunosNaLinha.join('<br>')}</td>`;
+                }).join('') + `<td style='border: 1px solid black;'>${totalLinha}</td></tr>`;
             }
             
             let totaisColuna = turmas.map(turma => alunosDistribuidos[turma].flat().length);
-            tabelaHTML += `<tr><th>Total</th>` + totaisColuna.map(total => `<td>${total}</td>`).join('') + `<td>${totaisColuna.reduce((a, b) => a + b, 0)}</td></tr>`;
+            tabelaHTML += `<tr><th>Total</th>` + totaisColuna.map(total => `<td style='border: 1px solid black;'>${total}</td>`).join('') + `<td style='border: 1px solid black;'>${totaisColuna.reduce((a, b) => a + b, 0)}</td></tr>`;
             
             tabelaHTML += "</table>";
             document.getElementById("tabela").innerHTML = tabelaHTML;
         }
         
-        function exportarPDF() {
-            alert("Função de exportação para PDF em desenvolvimento.");
+        function exportarDOC() {
+            let titulo = document.getElementById("titulo").value || "Sem Título";
+            let data = document.getElementById("data").value || "Sem Data";
+            let bimestre = document.getElementById("bimestre").value || "Sem Bimestre";
+            
+            let tabela = document.getElementById("tabela").innerHTML;
+            let conteudo = `
+                <h2>${titulo}</h2>
+                <p><strong>Data de Aplicação:</strong> ${data} &nbsp;&nbsp; <strong>Bimestre:</strong> ${bimestre}</p>
+                ${tabela}
+            `;
+            
+            let blob = new Blob(['<html><head><meta charset="UTF-8"><style>@page { size: A4 landscape; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid black; padding: 8px; text-align: center; } th { background-color: #f2f2f2; }</style></head><body>' + conteudo + '</body></html>'], { type: 'application/msword' });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "planilha_turmas.doc";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
