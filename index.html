@@ -1,144 +1,92 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Misturador Lourdes</title>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.29/dist/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 80px; margin-bottom: 10px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        th, td { border: 1px solid #ccc; padding: 5px; text-align: center; }
+        button { margin-top: 10px; }
+    </style>
+</head>
+<body>
 
-export default function MisturadorLourdes() {
-  const turmasPadrao = [
-    "1º Ano A", "1º Ano B", "1º Ano C",
-    "2º Ano A", "2º Ano B", "2º Ano C",
-    "3º Ano A", "3º Ano B"
-  ];
+<h2>Misturador Lourdes</h2>
 
-  const [turmas, setTurmas] = useState(
-    turmasPadrao.map(nome => ({
-      nome,
-      alunos: "Aluno1\nAluno2\nAluno3"
-    }))
-  );
+<div id="turmas">
+    <div><strong>1º Ano A:</strong><textarea id="turma1A"></textarea></div>
+    <div><strong>1º Ano B:</strong><textarea id="turma1B"></textarea></div>
+    <div><strong>1º Ano C:</strong><textarea id="turma1C"></textarea></div>
+    <div><strong>2º Ano A:</strong><textarea id="turma2A"></textarea></div>
+    <div><strong>2º Ano B:</strong><textarea id="turma2B"></textarea></div>
+    <div><strong>2º Ano C:</strong><textarea id="turma2C"></textarea></div>
+    <div><strong>3º Ano A:</strong><textarea id="turma3A"></textarea></div>
+    <div><strong>3º Ano B:</strong><textarea id="turma3B"></textarea></div>
+</div>
 
-  const [tabela, setTabela] = useState(null);
+<button onclick="gerarTabela()">Gerar Tabela</button>
+<button onclick="exportarPDF()">Exportar PDF</button>
 
-  const gerarTabela = () => {
-    const alunosPorTurma = turmas.map(t => t.alunos.split("\n").map(a => a.trim()).filter(a => a));
-    const tabelaTemp = Array(turmas.length).fill(null).map(() => Array(turmas.length).fill(""));
+<div id="resultado"></div>
 
-    alunosPorTurma.forEach((alunos, idx) => {
-      let pos = 0;
-      alunos.forEach(aluno => {
-        tabelaTemp[idx][pos % turmas.length] += aluno + "\n";
-        pos++;
-      });
+<script>
+function gerarTabela() {
+    const nomesTurmas = ["1º Ano A", "1º Ano B", "1º Ano C", "2º Ano A", "2º Ano B", "2º Ano C", "3º Ano A", "3º Ano B"];
+    const alunosPorTurma = nomesTurmas.map(nome => 
+        document.getElementById("turma" + nome.replace(/[^a-zA-Z0-9]/g, '')).value
+        .split("\n").filter(n => n.trim())
+    );
+
+    let tabela = "<table><thead><tr><th>Turmas</th>";
+    nomesTurmas.forEach(t => tabela += `<th>${t}</th>`);
+    tabela += "<th>Total</th></tr></thead><tbody>";
+
+    alunosPorTurma.forEach((turma, i) => {
+        tabela += `<tr><td><strong>${nomesTurmas[i]}</strong></td>`;
+        let totalLinha = 0;
+        alunosPorTurma.forEach((_, j) => {
+            const nome = turma[j % turma.length] || "";
+            tabela += `<td>${nome}</td>`;
+            if(nome) totalLinha++;
+        });
+        tabela += `<td><strong>${totalLinha}</strong></td></tr>`;
     });
 
-    setTabela(tabelaTemp);
-  };
-
-  const exportarPDF = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
-    const head = ["Turmas", ...turmas.map(t => t.nome), "Total"];
-
-    const body = tabela.map((linha, idx) => {
-      const linhaTexto = [turmas[idx].nome];
-      let total = 0;
-      linha.forEach(celula => {
-        const alunos = celula.trim().split("\n").filter(a => a);
-        linhaTexto.push(alunos.join("\n"));
-        total += alunos.length;
-      });
-      linhaTexto.push(total);
-      return linhaTexto;
+    tabela += "<tr><td><strong>Total</strong></td>";
+    nomesTurmas.forEach((_, colIdx) => {
+        let totalColuna = alunosPorTurma.reduce((sum, turma) => 
+            sum + ((turma[colIdx % turma.length]) ? 1 : 0), 0);
+        tabela += `<td><strong>${totalColuna}</strong></td>`;
     });
+    tabela += `<td><strong>${alunosPorTurma.flat().length}</strong></td></tr>`;
 
-    const totalColuna = ["Total"];
-    for (let i = 0; i < turmas.length; i++) {
-      let soma = 0;
-      tabela.forEach(l => {
-        soma += l[i].trim().split("\n").filter(a => a).length;
-      });
-      totalColuna.push(soma);
-    }
-    totalColuna.push(totalColuna.slice(1).reduce((a, b) => a + b, 0));
+    tabela += "</tbody></table>";
 
-    autoTable(doc, {
-      head: [head],
-      body: [...body, totalColuna]
-    });
-
-    doc.save("misturador_lourdes.pdf");
-  };
-
-  return (
-    <div className="p-4 space-y-4 max-w-5xl mx-auto">
-      <h1 className="text-xl font-bold text-center">Misturador Lourdes</h1>
-
-      {turmas.map((turma, idx) => (
-        <div key={idx} className="space-y-1">
-          <label className="font-semibold">{turma.nome}</label>
-          <textarea
-            className="w-full border p-2 rounded min-h-[80px]"
-            value={turma.alunos}
-            onChange={e => {
-              const newTurmas = [...turmas];
-              newTurmas[idx].alunos = e.target.value;
-              setTurmas(newTurmas);
-            }}
-          />
-        </div>
-      ))}
-
-      <Button onClick={gerarTabela}>Gerar Tabela</Button>
-
-      {tabela && (
-        <>
-          <Button onClick={exportarPDF}>Exportar PDF</Button>
-          <div className="overflow-auto border mt-4">
-            <table className="min-w-full text-xs">
-              <thead>
-                <tr>
-                  <th className="border p-1">Turmas</th>
-                  {turmas.map((t, idx) => (
-                    <th key={idx} className="border p-1">{t.nome}</th>
-                  ))}
-                  <th className="border p-1">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tabela.map((linha, idx) => {
-                  const total = linha.reduce((acc, cel) => acc + cel.trim().split("\n").filter(a => a).length, 0);
-                  return (
-                    <tr key={idx}>
-                      <td className="border p-1 font-bold">{turmas[idx].nome}</td>
-                      {linha.map((cel, j) => (
-                        <td key={j} className="border p-1 whitespace-pre-wrap">{cel.trim()}</td>
-                      ))}
-                      <td className="border p-1 text-center font-bold">{total}</td>
-                    </tr>
-                  );
-                })}
-                <tr>
-                  <td className="border p-1 font-bold">Total</td>
-                  {turmas.map((_, colIdx) => {
-                    let soma = 0;
-                    tabela.forEach(l => {
-                      soma += l[colIdx].trim().split("\n").filter(a => a).length;
-                    });
-                    return <td key={colIdx} className="border p-1 text-center font-bold">{soma}</td>;
-                  })}
-                  <td className="border p-1 text-center font-bold">
-                    {turmas.map((_, colIdx) =>
-                      tabela.reduce((acc, l) => acc + l[colIdx].trim().split("\n").filter(a => a).length, 0)
-                    ).reduce((a, b) => a + b, 0)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </div>
-  );
+    document.getElementById("resultado").innerHTML = tabela;
 }
+
+function exportarPDF() {
+    gerarTabela(); // garante que a tabela seja gerada antes
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape');
+
+    doc.text("Misturador Lourdes", 14, 10);
+
+    doc.autoTable({
+        html: 'table',
+        startY: 20,
+        theme: 'grid'
+    });
+
+    doc.save('misturador_lourdes.pdf');
+}
+</script>
 
 </body>
 </html>
+
