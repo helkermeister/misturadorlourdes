@@ -1,106 +1,144 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Embaralhamento de Turmas</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        .container { width: 80%; margin: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid black; padding: 8px; text-align: center; }
-        th { background-color: #f2f2f2; }
-        textarea { width: 100%; height: 80px; }
-        .input-group { margin-bottom: 10px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Embaralhamento de Turmas</h1>
-        <div class="input-group">
-            <label>Título da Avaliação: <input type="text" id="titulo"></label>
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+export default function MisturadorLourdes() {
+  const turmasPadrao = [
+    "1º Ano A", "1º Ano B", "1º Ano C",
+    "2º Ano A", "2º Ano B", "2º Ano C",
+    "3º Ano A", "3º Ano B"
+  ];
+
+  const [turmas, setTurmas] = useState(
+    turmasPadrao.map(nome => ({
+      nome,
+      alunos: "Aluno1\nAluno2\nAluno3"
+    }))
+  );
+
+  const [tabela, setTabela] = useState(null);
+
+  const gerarTabela = () => {
+    const alunosPorTurma = turmas.map(t => t.alunos.split("\n").map(a => a.trim()).filter(a => a));
+    const tabelaTemp = Array(turmas.length).fill(null).map(() => Array(turmas.length).fill(""));
+
+    alunosPorTurma.forEach((alunos, idx) => {
+      let pos = 0;
+      alunos.forEach(aluno => {
+        tabelaTemp[idx][pos % turmas.length] += aluno + "\n";
+        pos++;
+      });
+    });
+
+    setTabela(tabelaTemp);
+  };
+
+  const exportarPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    const head = ["Turmas", ...turmas.map(t => t.nome), "Total"];
+
+    const body = tabela.map((linha, idx) => {
+      const linhaTexto = [turmas[idx].nome];
+      let total = 0;
+      linha.forEach(celula => {
+        const alunos = celula.trim().split("\n").filter(a => a);
+        linhaTexto.push(alunos.join("\n"));
+        total += alunos.length;
+      });
+      linhaTexto.push(total);
+      return linhaTexto;
+    });
+
+    const totalColuna = ["Total"];
+    for (let i = 0; i < turmas.length; i++) {
+      let soma = 0;
+      tabela.forEach(l => {
+        soma += l[i].trim().split("\n").filter(a => a).length;
+      });
+      totalColuna.push(soma);
+    }
+    totalColuna.push(totalColuna.slice(1).reduce((a, b) => a + b, 0));
+
+    autoTable(doc, {
+      head: [head],
+      body: [...body, totalColuna]
+    });
+
+    doc.save("misturador_lourdes.pdf");
+  };
+
+  return (
+    <div className="p-4 space-y-4 max-w-5xl mx-auto">
+      <h1 className="text-xl font-bold text-center">Misturador Lourdes</h1>
+
+      {turmas.map((turma, idx) => (
+        <div key={idx} className="space-y-1">
+          <label className="font-semibold">{turma.nome}</label>
+          <textarea
+            className="w-full border p-2 rounded min-h-[80px]"
+            value={turma.alunos}
+            onChange={e => {
+              const newTurmas = [...turmas];
+              newTurmas[idx].alunos = e.target.value;
+              setTurmas(newTurmas);
+            }}
+          />
         </div>
-        <div class="input-group">
-            <label>Data de Aplicação: <input type="date" id="data"></label>
-        </div>
-        <div class="input-group">
-            <label>Bimestre: <input type="text" id="bimestre"></label>
-        </div>
-        
-        <h2>Insira os Alunos por Turma</h2>
-        <div id="inputs"></div>
-        <button onclick="gerarTabela()">Gerar Combinação</button>
-        <button onclick="exportarDOC()">Exportar para DOC</button>
-        
-        <h2>Resultado</h2>
-        <div id="tabela"></div>
+      ))}
+
+      <Button onClick={gerarTabela}>Gerar Tabela</Button>
+
+      {tabela && (
+        <>
+          <Button onClick={exportarPDF}>Exportar PDF</Button>
+          <div className="overflow-auto border mt-4">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr>
+                  <th className="border p-1">Turmas</th>
+                  {turmas.map((t, idx) => (
+                    <th key={idx} className="border p-1">{t.nome}</th>
+                  ))}
+                  <th className="border p-1">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tabela.map((linha, idx) => {
+                  const total = linha.reduce((acc, cel) => acc + cel.trim().split("\n").filter(a => a).length, 0);
+                  return (
+                    <tr key={idx}>
+                      <td className="border p-1 font-bold">{turmas[idx].nome}</td>
+                      {linha.map((cel, j) => (
+                        <td key={j} className="border p-1 whitespace-pre-wrap">{cel.trim()}</td>
+                      ))}
+                      <td className="border p-1 text-center font-bold">{total}</td>
+                    </tr>
+                  );
+                })}
+                <tr>
+                  <td className="border p-1 font-bold">Total</td>
+                  {turmas.map((_, colIdx) => {
+                    let soma = 0;
+                    tabela.forEach(l => {
+                      soma += l[colIdx].trim().split("\n").filter(a => a).length;
+                    });
+                    return <td key={colIdx} className="border p-1 text-center font-bold">{soma}</td>;
+                  })}
+                  <td className="border p-1 text-center font-bold">
+                    {turmas.map((_, colIdx) =>
+                      tabela.reduce((acc, l) => acc + l[colIdx].trim().split("\n").filter(a => a).length, 0)
+                    ).reduce((a, b) => a + b, 0)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
-    
-    <script>
-        const turmas = ["1º ano A", "1º ano B", "1º ano C", "2º ano A", "2º ano B", "2º ano C", "3º ano A", "3º ano B"];
-        const inputsDiv = document.getElementById("inputs");
-        turmas.forEach(turma => {
-            inputsDiv.innerHTML += `<h3>${turma}</h3><textarea id="${turma.replace(/\s/g, '_')}" placeholder="Insira os alunos, um por linha"></textarea>`;
-        });
-        
-        function gerarTabela() {
-            let dados = {};
-            turmas.forEach(turma => {
-                let id = turma.replace(/\s/g, '_');
-                dados[turma] = document.getElementById(id).value.split('\n').map(a => a.trim()).filter(a => a !== '');
-            });
-            
-            let totalLinhas = 8;
-            let alunosDistribuidos = {};
-            turmas.forEach(turma => alunosDistribuidos[turma] = Array.from({ length: totalLinhas }, () => []));
-            
-            turmas.forEach(origem => {
-                let alunos = [...dados[origem]].sort(() => Math.random() - 0.5);
-                let linhaAtual = 0;
-                while (alunos.length > 0) {
-                    alunosDistribuidos[origem][linhaAtual % totalLinhas].push(alunos.shift());
-                    linhaAtual++;
-                }
-            });
-            
-            let tabelaHTML = "<table style='border: 2px solid black; width: 100%; text-align: center; border-collapse: collapse;'><tr><th>Turma</th>" + turmas.map(t => `<th>${t}</th>`).join('') + "<th>Total</th></tr>";
-            
-            for (let i = 0; i < totalLinhas; i++) {
-                let totalLinha = 0;
-                tabelaHTML += `<tr><th>${turmas[i]}</th>` + turmas.map(turma => {
-                    let alunosNaLinha = alunosDistribuidos[turma][i];
-                    totalLinha += alunosNaLinha.length;
-                    return `<td style='border: 1px solid black;'>${alunosNaLinha.join('<br>')}</td>`;
-                }).join('') + `<td style='border: 1px solid black;'>${totalLinha}</td></tr>`;
-            }
-            
-            let totaisColuna = turmas.map(turma => alunosDistribuidos[turma].flat().length);
-            tabelaHTML += `<tr><th>Total</th>` + totaisColuna.map(total => `<td style='border: 1px solid black;'>${total}</td>`).join('') + `<td style='border: 1px solid black;'>${totaisColuna.reduce((a, b) => a + b, 0)}</td></tr>`;
-            
-            tabelaHTML += "</table>";
-            document.getElementById("tabela").innerHTML = tabelaHTML;
-        }
-        
-        function exportarDOC() {
-            let titulo = document.getElementById("titulo").value || "Sem Título";
-            let data = document.getElementById("data").value || "Sem Data";
-            let bimestre = document.getElementById("bimestre").value || "Sem Bimestre";
-            
-            let tabela = document.getElementById("tabela").innerHTML;
-            let conteudo = `
-                <h2>${titulo}</h2>
-                <p><strong>Data de Aplicação:</strong> ${data} &nbsp;&nbsp; <strong>Bimestre:</strong> ${bimestre}</p>
-                ${tabela}
-            `;
-            
-            let blob = new Blob(['<html><head><meta charset="UTF-8"><style>@page { size: A4 landscape; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid black; padding: 8px; text-align: center; } th { background-color: #f2f2f2; }</style></head><body>' + conteudo + '</body></html>'], { type: 'application/msword' });
-            let link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "planilha_turmas.doc";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    </script>
+  );
+}
+
 </body>
 </html>
